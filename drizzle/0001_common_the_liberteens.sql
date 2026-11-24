@@ -1,0 +1,1 @@
+ALTER TABLE "challenges" ADD COLUMN "video_src" text;
