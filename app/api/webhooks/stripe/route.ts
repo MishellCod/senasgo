@@ -1,13 +1,24 @@
-import Stripe from "stripe";
+
+import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 import db from "@/db/drizzle";
-import { stripe } from "@/lib/stripe";
 import { userSubscription } from "@/db/schema";
 
 export async function POST(req: Request) {
+  const apiKey = process.env.STRIPE_API_KEY;
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!apiKey || !webhookSecret) {
+    return new NextResponse("Stripe no está configurado todavía", {
+      status: 503,
+    });
+  }
+
+  const { stripe } = await import("@/lib/stripe");
+
   const body = await req.text();
   const signature = headers().get("Stripe-Signature") as string;
 
@@ -17,9 +28,9 @@ export async function POST(req: Request) {
     event = stripe.webhooks.constructEvent(
       body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET!,
+      webhookSecret,
     );
-  } catch(error: any) {
+  } catch (error: any) {
     return new NextResponse(`Webhook error: ${error.message}`, {
       status: 400,
     });
@@ -57,8 +68,8 @@ export async function POST(req: Request) {
       stripeCurrentPeriodEnd: new Date(
         subscription.current_period_end * 1000,
       ),
-    }).where(eq(userSubscription.stripeSubscriptionId, subscription.id))
+    }).where(eq(userSubscription.stripeSubscriptionId, subscription.id));
   }
 
   return new NextResponse(null, { status: 200 });
-};
+}
